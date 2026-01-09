@@ -14,7 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      campaigns: {
+        Row: {
+          aspect_ratio: string
+          brand_tone: string
+          created_at: string
+          cta_text: string | null
+          enhanced_prompt: string | null
+          generated_caption: string | null
+          generated_hashtags: string[] | null
+          generated_image_url: string | null
+          id: string
+          name: string
+          platform: string
+          prompt: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          aspect_ratio?: string
+          brand_tone?: string
+          created_at?: string
+          cta_text?: string | null
+          enhanced_prompt?: string | null
+          generated_caption?: string | null
+          generated_hashtags?: string[] | null
+          generated_image_url?: string | null
+          id?: string
+          name: string
+          platform?: string
+          prompt: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          aspect_ratio?: string
+          brand_tone?: string
+          created_at?: string
+          cta_text?: string | null
+          enhanced_prompt?: string | null
+          generated_caption?: string | null
+          generated_hashtags?: string[] | null
+          generated_image_url?: string | null
+          id?: string
+          name?: string
+          platform?: string
+          prompt?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          brand_colors: Json | null
+          company_name: string | null
+          created_at: string
+          default_platform: string | null
+          default_tone: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          brand_colors?: Json | null
+          company_name?: string | null
+          created_at?: string
+          default_platform?: string | null
+          default_tone?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          brand_colors?: Json | null
+          company_name?: string | null
+          created_at?: string
+          default_platform?: string | null
+          default_tone?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
