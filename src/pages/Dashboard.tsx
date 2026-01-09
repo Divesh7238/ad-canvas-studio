@@ -16,6 +16,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/hooks/useAuth";
 
 const statsData = [
   {
@@ -115,8 +116,11 @@ const itemVariants = {
 };
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
+
   return (
-    <MainLayout title="Dashboard" subtitle="Welcome back! Here's your campaign overview.">
+    <MainLayout title="Dashboard" subtitle={`Welcome back, ${firstName}! Here's your campaign overview.`}>
       <motion.div
         variants={containerVariants}
         initial="hidden"

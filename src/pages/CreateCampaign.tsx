@@ -1,20 +1,22 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import {
   Sparkles,
   Wand2,
-  ArrowRight,
   Image,
   Type,
   Palette,
   Target,
   Hash,
-  ChevronDown,
   Instagram,
   Linkedin,
   RefreshCw,
   Download,
   Edit3,
+  Save,
+  Copy,
+  Check,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -29,8 +31,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 const brandTones = [
   { value: "professional", label: "Professional", icon: "💼" },
@@ -51,30 +54,109 @@ const aspectRatios = [
 ];
 
 export default function CreateCampaign() {
+  const { user } = useAuth();
   const [prompt, setPrompt] = useState("");
+  const [campaignName, setCampaignName] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<{
     image: string;
     caption: string;
     hashtags: string[];
+    enhancedPrompt: string;
   } | null>(null);
   const [selectedTone, setSelectedTone] = useState("professional");
   const [selectedPlatform, setSelectedPlatform] = useState("instagram");
   const [selectedRatio, setSelectedRatio] = useState("1:1");
+  const [ctaText, setCtaText] = useState("Shop Now");
+  const [isSaving, setIsSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim()) {
+      toast.error("Please enter a campaign prompt");
+      return;
+    }
+
     setIsGenerating(true);
+    setGeneratedContent(null);
 
-    // Simulate AI generation
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-campaign", {
+        body: {
+          prompt,
+          platform: selectedPlatform,
+          brandTone: selectedTone,
+          ctaText,
+        },
+      });
 
-    setGeneratedContent({
-      image: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=600&h=600&fit=crop",
-      caption: "Unlock your brand's full potential with cutting-edge solutions designed for modern businesses. Transform your workflow and drive exceptional results. 🚀",
-      hashtags: ["#Innovation", "#Marketing", "#Growth", "#Business", "#Success"],
-    });
-    setIsGenerating(false);
+      if (error) {
+        throw error;
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setGeneratedContent({
+        image: data.data.imageUrl,
+        caption: data.data.caption,
+        hashtags: data.data.hashtags,
+        enhancedPrompt: data.data.enhancedPrompt,
+      });
+
+      toast.success("Campaign generated successfully!");
+    } catch (error) {
+      console.error("Generation error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to generate campaign");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSaveCampaign = async () => {
+    if (!generatedContent || !user) {
+      toast.error("Please generate content first");
+      return;
+    }
+
+    const name = campaignName.trim() || `Campaign ${new Date().toLocaleDateString()}`;
+    setIsSaving(true);
+
+    try {
+      const { error } = await supabase.from("campaigns").insert({
+        user_id: user.id,
+        name,
+        prompt,
+        enhanced_prompt: generatedContent.enhancedPrompt,
+        platform: selectedPlatform,
+        aspect_ratio: selectedRatio,
+        brand_tone: selectedTone,
+        cta_text: ctaText,
+        generated_image_url: generatedContent.image,
+        generated_caption: generatedContent.caption,
+        generated_hashtags: generatedContent.hashtags,
+        status: "completed",
+      });
+
+      if (error) throw error;
+      toast.success("Campaign saved successfully!");
+    } catch (error) {
+      console.error("Save error:", error);
+      toast.error("Failed to save campaign");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCopyCaption = () => {
+    if (generatedContent) {
+      const fullText = `${generatedContent.caption}\n\n${generatedContent.hashtags.join(" ")}`;
+      navigator.clipboard.writeText(fullText);
+      setCopied(true);
+      toast.success("Caption copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (
@@ -87,6 +169,23 @@ export default function CreateCampaign() {
           transition={{ duration: 0.5 }}
           className="space-y-6"
         >
+          {/* Campaign Name */}
+          <Card className="border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg font-display">
+                <Edit3 className="w-5 h-5 text-primary" />
+                Campaign Name
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Input
+                placeholder="E.g., Summer Sale 2024"
+                value={campaignName}
+                onChange={(e) => setCampaignName(e.target.value)}
+              />
+            </CardContent>
+          </Card>
+
           {/* Prompt Input */}
           <Card className="border-border/50">
             <CardHeader>
@@ -193,7 +292,8 @@ export default function CreateCampaign() {
                 <Input
                   id="cta"
                   placeholder="Shop Now, Learn More, Get Started..."
-                  defaultValue="Shop Now"
+                  value={ctaText}
+                  onChange={(e) => setCtaText(e.target.value)}
                 />
               </div>
             </CardContent>
@@ -252,14 +352,18 @@ export default function CreateCampaign() {
                     />
                     <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors flex items-center justify-center">
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-3">
-                        <Button size="sm" variant="secondary" className="shadow-lg">
-                          <Edit3 className="w-4 h-4 mr-2" />
-                          Edit in Studio
-                        </Button>
-                        <Button size="sm" variant="secondary" className="shadow-lg">
-                          <Download className="w-4 h-4 mr-2" />
-                          Download
-                        </Button>
+                        <Link to="/studio">
+                          <Button size="sm" variant="secondary" className="shadow-lg">
+                            <Edit3 className="w-4 h-4 mr-2" />
+                            Edit in Studio
+                          </Button>
+                        </Link>
+                        <a href={generatedContent.image} download="campaign-creative.png" target="_blank" rel="noopener noreferrer">
+                          <Button size="sm" variant="secondary" className="shadow-lg">
+                            <Download className="w-4 h-4 mr-2" />
+                            Download
+                          </Button>
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -271,9 +375,13 @@ export default function CreateCampaign() {
                         <Type className="w-4 h-4" />
                         Generated Caption
                       </Label>
-                      <Button variant="ghost" size="sm">
-                        <RefreshCw className="w-3 h-3 mr-1" />
-                        Regenerate
+                      <Button variant="ghost" size="sm" onClick={handleCopyCaption}>
+                        {copied ? (
+                          <Check className="w-3 h-3 mr-1" />
+                        ) : (
+                          <Copy className="w-3 h-3 mr-1" />
+                        )}
+                        {copied ? "Copied!" : "Copy All"}
                       </Button>
                     </div>
                     <Textarea
@@ -303,26 +411,46 @@ export default function CreateCampaign() {
 
                   {/* Actions */}
                   <div className="flex gap-3 pt-4 border-t border-border">
-                    <Button variant="gradient" className="flex-1">
-                      <Edit3 className="w-4 h-4 mr-2" />
-                      Edit in Studio
+                    <Button
+                      variant="gradient"
+                      className="flex-1"
+                      onClick={handleSaveCampaign}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Campaign
+                        </>
+                      )}
                     </Button>
-                    <Button variant="accent" className="flex-1">
-                      <Download className="w-4 h-4 mr-2" />
-                      Export
+                    <Button variant="outline" onClick={handleGenerate} disabled={isGenerating}>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Regenerate
                     </Button>
                   </div>
                 </motion.div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="w-20 h-20 bg-gradient-subtle rounded-2xl flex items-center justify-center mb-4">
-                    <Sparkles className="w-10 h-10 text-muted-foreground" />
+                    {isGenerating ? (
+                      <RefreshCw className="w-10 h-10 text-primary animate-spin" />
+                    ) : (
+                      <Sparkles className="w-10 h-10 text-muted-foreground" />
+                    )}
                   </div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">
-                    No Creative Generated Yet
+                    {isGenerating ? "Generating Your Creative..." : "No Creative Generated Yet"}
                   </h3>
                   <p className="text-muted-foreground text-sm max-w-sm">
-                    Enter your campaign prompt and configure settings to generate your first AI-powered ad creative.
+                    {isGenerating
+                      ? "AI is crafting your perfect ad. This may take a moment."
+                      : "Enter your campaign prompt and configure settings to generate your first AI-powered ad creative."}
                   </p>
                 </div>
               )}
